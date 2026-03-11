@@ -154,7 +154,7 @@ export class DevAPI {
         var department = {}
         var res = false
         if (params.products) {
-            var method = params.payments.cash > 0 ? 'cash' : params.payments.card > 0 ? 'card' : ''
+            // var method = params.payments.cash > 0 ? 'cash' : params.payments.card > 0 ? 'card' : ''
             
             // this.departments.forEach( async val => {
             //     if(val.type.toLowerCase() == 'payment' && val.name.toLowerCase().includes(method)) {
@@ -202,7 +202,28 @@ export class DevAPI {
     sendRequest = async (params,type,secondType = null) => {
         var payload = {}
         var posts = []
-        params.products.map(val => {
+        var method = params.payments.cash > 0 ? 'cash' : params.payments.card > 0 ? 'card' : ''
+                var revAccId = null
+                var saleDepId = null
+                await axios.get(`https://app.hotelrunner.com/api/v1/apps/revenue_accounts?token=${this.token}&hr_id=${this.hr_id}`)
+                                        .then(res => {
+                                            if(res.data) {
+                                                console.log(method, res.data);
+                                                res.data.data.map(val => {
+                                                    if(val.name.toLowerCase().includes(method) && val.name.toLowerCase().includes('pos')) {
+                                                        console.log(val);
+                                                        revAccId = val.api_code;
+                                                        saleDepId = val.sales_departments[0].api_code
+                                                        return;
+                                                    } else if(val.name.toLowerCase().includes(method)) {
+                                                        revAccId = val.api_code;
+                                                        return;
+                                                    }
+                                                })
+                                                
+                                            }
+                                        })
+        params.products.map(async val => {
             console.log();
             let catId = []
             let dep = null
@@ -233,10 +254,11 @@ export class DevAPI {
                     exchange_rate:null,
                 })
             if(secondType !== null ) {
+                
                 posts.push({
                     post_type: secondType,
-                    department_id:dep.department_api_code,
-                    revenue_account_id:dep.revenue_api_code,
+                    department_id:saleDepId,
+                    revenue_account_id:revAccId,
                     product_id:null,
                     product_name:val.name,
                     quantity:val.count,
@@ -256,7 +278,7 @@ export class DevAPI {
             "note": "Invoice Note",
             "posts":posts
         }
-        console.log(payload);
+        console.log('payload', payload);
         await axios.post(`https://app.hotelrunner.com/api/v1/apps/pos/postings?token=${this.token}&hr_id=${this.hr_id}`,payload)
         .then(res => {
             console.log('posted to PMS: ',res);
